@@ -17,7 +17,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const res = ctx.getResponse<Response>();
     const req = ctx.getRequest<Request>();
 
-    let statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
+    let statusCode: number = HttpStatus.INTERNAL_SERVER_ERROR;
     let error = 'INTERNAL_ERROR';
     let message = 'An unexpected error occurred';
 
@@ -26,11 +26,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       const body = exception.getResponse();
       if (typeof body === 'object' && body !== null) {
         const b = body as Record<string, unknown>;
-        error = (b['error'] as string) ?? HttpStatus[statusCode] ?? 'ERROR';
-        message = (b['message'] as string) ?? exception.message;
+        error = (b['error'] as string | undefined) ?? String(HttpStatus[statusCode] ?? 'ERROR');
+        message = (b['message'] as string | undefined) ?? exception.message;
       } else {
         message = String(body);
-        error = HttpStatus[statusCode] ?? 'ERROR';
+        error = String(HttpStatus[statusCode] ?? 'ERROR');
       }
     }
 

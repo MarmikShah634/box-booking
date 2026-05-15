@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../../redis/redis.service';
 import { UsersService } from '../../users/users.service';
 import { TokenService } from '../token.service';
+import { User } from '@prisma/client';
 
 const OTP_TTL_SECONDS = 300; // 5 min
 const OTP_MAX_ATTEMPTS = 5;
@@ -85,7 +86,7 @@ export class UserAuthService {
       throw new UnauthorizedException({ error: 'UNAUTHENTICATED', message: 'OTP expired or not requested' });
     }
 
-    const record: OtpRecord = JSON.parse(raw);
+    const record = JSON.parse(raw) as OtpRecord;
     record.attempts += 1;
 
     if (record.attempts > OTP_MAX_ATTEMPTS) {
@@ -123,7 +124,7 @@ export class UserAuthService {
     await this.tokens.revokeRefreshToken(rawToken, 'user');
   }
 
-  private sanitizeUser(user: any) {
+  private sanitizeUser(user: User) {
     return { id: user.id, phone: user.phone, name: user.name, email: user.email };
   }
 }

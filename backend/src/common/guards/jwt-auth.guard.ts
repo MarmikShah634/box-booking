@@ -2,6 +2,7 @@ import { ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/com
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { JwtPayload } from '../../auth/jwt.strategy';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
@@ -18,8 +19,11 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     return super.canActivate(ctx);
   }
 
-  handleRequest(err: any, user: any) {
-    if (err || !user) throw err ?? new UnauthorizedException({ error: 'UNAUTHENTICATED', message: 'Missing or invalid token' });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  override handleRequest<TUser = JwtPayload>(err: Error | null, user: TUser | false): TUser {
+    if (err ?? !user) {
+      throw err ?? new UnauthorizedException({ error: 'UNAUTHENTICATED', message: 'Missing or invalid token' });
+    }
     return user;
   }
 }

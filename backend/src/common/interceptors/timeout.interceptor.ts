@@ -9,7 +9,7 @@ export class TimeoutInterceptor implements NestInterceptor {
   intercept(_ctx: ExecutionContext, next: CallHandler): Observable<unknown> {
     return next.handle().pipe(
       timeout(this.ms),
-      catchError((err) => {
+      catchError((err: unknown) => {
         if (err instanceof TimeoutError) {
           return throwError(() => new RequestTimeoutException('Request timed out'));
         }
