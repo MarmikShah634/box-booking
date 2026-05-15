@@ -1,10 +1,13 @@
 import puppeteer, { type Browser, type Page } from 'puppeteer'
+import * as fs from 'fs'
+import * as path from 'path'
 
 const USER_WEB = process.env.USER_WEB_URL || 'http://localhost:3000'
-const ADMIN_WEB = process.env.ADMIN_WEB_URL || 'http://localhost:3002'
-const API_URL = process.env.API_URL || 'http://localhost:3001'
+const ADMIN_WEB = process.env.ADMIN_WEB_URL || 'http://localhost:3001'
+const LANDING = process.env.LANDING_URL || 'http://localhost:3003'
+const API_URL = process.env.API_URL || 'http://localhost:3002'
 
-export { USER_WEB, ADMIN_WEB, API_URL }
+export { USER_WEB, ADMIN_WEB, LANDING, API_URL }
 
 export async function launchBrowser(): Promise<Browser> {
   return puppeteer.launch({
