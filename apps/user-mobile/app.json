@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "BoxCricket",
+    "slug": "user-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "boxcricket",
+    "userInterfaceStyle": "automatic",
+    "plugins": ["expo-router", "expo-secure-store"],
+    "android": { "adaptiveIcon": { "backgroundColor": "#059669" } },
+    "ios": { "bundleIdentifier": "com.boxcricket.user" }
+  }
+}
