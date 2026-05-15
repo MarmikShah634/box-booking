@@ -1,0 +1,413 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch"]
+}
+
+// ============ User (player) ============
+model User {
+  id            String             @id @default(cuid())
+  phone         String             @unique // E.164, e.g. +919999999999
+  name          String?
+  email         String?
+  isBlocked     Boolean            @default(false)
+  blockReason   String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  bookings      Booking[]
+  reviews       Review[]
+  refreshTokens UserRefreshToken[]
+
+  @@index([phone])
+}
+
+model UserRefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique // argon2id hash
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ============ Owner ============
+enum KycStatus {
+  PENDING
+  SUBMITTED
+  VERIFIED
+  REJECTED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  FREE_OVERRIDE
+}
+
+model Owner {
+  id                       String             @id @default(cuid())
+  email                    String             @unique
+  passwordHash             String? // null if Google-only
+  googleSub                String?            @unique // null if not linked
+  name                     String
+  phone                    String
+  emailVerifiedAt          DateTime?
+  kycStatus                KycStatus          @default(PENDING)
+  gstin                    String?
+  pan                      String?
+  bankAccountHolderName    String?
+  bankAccountNumberEnc     String? // AES-256-GCM
+  bankIfsc                 String?
+  razorpayKeyId            String?
+  razorpayKeySecretEnc     String? // AES-256-GCM
+  razorpayWebhookSecretEnc String? // AES-256-GCM
+  subscriptionStatus       SubscriptionStatus @default(ACTIVE)
+  subscriptionOverrideUntil DateTime? // super-admin grant
+  lastInvoiceSeq           Int                @default(0) // monotonic per owner
+  isSuspended              Boolean            @default(false)
+  suspendReason            String?
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+  venues                   Venue[]
+  bookings                 Booking[]
+  refreshTokens            OwnerRefreshToken[]
+  subscriptions            Subscription[]
+
+  @@index([email])
+}
+
+model OwnerRefreshToken {
+  id        String    @id @default(cuid())
+  ownerId   String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  owner     Owner     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+}
+
+// ============ Super-admin ============
+model SuperAdmin {
+  id            String                  @id @default(cuid())
+  email         String                  @unique
+  passwordHash  String
+  name          String
+  totpSecret    String? // future 2FA
+  lastLoginAt   DateTime?
+  createdAt     DateTime                @default(now())
+  refreshTokens SuperAdminRefreshToken[]
+}
+
+model SuperAdminRefreshToken {
+  id        String     @id @default(cuid())
+  adminId   String
+  tokenHash String     @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime   @default(now())
+  admin     SuperAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+}
+
+// ============ Venue ============
+enum VenueStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+model Venue {
+  id              String      @id @default(cuid())
+  ownerId         String
+  slug            String      @unique // generated from name + city + short hash
+  name            String
+  description     String?
+  address         String
+  city            String // canonical city name (lowercase)
+  state           String
+  pincode         String
+  geoLat          Float?
+  geoLng          Float?
+  amenities       String[] // e.g. ["parking","washroom","floodlight","cafeteria"]
+  photos          String[] // R2 object keys
+  status          VenueStatus @default(DRAFT)
+  rejectionReason String?
+  suspendReason   String?
+  approvedAt      DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  owner           Owner       @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  boxes           Box[]
+  bookings        Booking[]
+  reviews         Review[]
+
+  @@index([city, status])
+  @@index([ownerId])
+}
+
+// ============ Box ============
+enum SurfaceType {
+  TURF
+  MAT
+  CONCRETE
+  OTHER
+}
+
+model Box {
+  id                 String        @id @default(cuid())
+  venueId            String
+  name               String // e.g. "Box A"
+  surfaceType        SurfaceType   @default(TURF)
+  photos             String[]
+  defaultHourlyPrice Int // paise
+  openingHour        Int // 0-23, e.g. 6
+  closingHour        Int // 0-24, e.g. 24 (midnight)
+  isActive           Boolean       @default(true)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  venue              Venue         @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  pricingRules       PricingRule[]
+  blackouts          Blackout[]
+  bookings           Booking[]
+  slotHolds          SlotHold[]
+
+  @@index([venueId, isActive])
+}
+
+// ============ Pricing rules ============
+enum DayType {
+  WEEKDAY
+  WEEKEND
+}
+
+model PricingRule {
+  id        String  @id @default(cuid())
+  boxId     String
+  dayType   DayType
+  startHour Int // inclusive, 0-23
+  endHour   Int // exclusive, 1-24
+  price     Int // paise per hour
+  box       Box     @relation(fields: [boxId], references: [id], onDelete: Cascade)
+
+  @@index([boxId, dayType])
+}
+
+// ============ Blackouts ============
+enum BlackoutType {
+  ONE_OFF
+  RECURRING_WEEKLY
+}
+
+model Blackout {
+  id        String       @id @default(cuid())
+  boxId     String
+  type      BlackoutType
+  date      DateTime? // for ONE_OFF, midnight IST stored as UTC offset
+  weekday   Int? // 0=Sun ... 6=Sat for RECURRING_WEEKLY
+  reason    String?
+  createdAt DateTime     @default(now())
+  box       Box          @relation(fields: [boxId], references: [id], onDelete: Cascade)
+
+  @@index([boxId, type])
+}
+
+// ============ Slot holds ============
+model SlotHold {
+  id        String   @id @default(cuid())
+  boxId     String
+  // slotDate: IST calendar date stored as UTC midnight of that IST day (i.e. prev-day 18:30 UTC).
+  // Always use time.ts helpers — never raw new Date().
+  slotDate  DateTime
+  slotHour  Int // 0-23
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  box       Box      @relation(fields: [boxId], references: [id], onDelete: Cascade)
+
+  @@unique([boxId, slotDate, slotHour])
+  @@index([expiresAt])
+}
+
+// ============ Bookings ============
+enum BookingStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  REFUNDED
+  NO_SHOW
+  PAYMENT_FAILED
+}
+
+model Booking {
+  id                         String        @id @default(cuid())
+  boxId                      String
+  venueId                    String
+  ownerId                    String
+  userId                     String
+  slotDate                   DateTime // date-only (see SlotHold convention above)
+  slotHour                   Int
+  durationHours              Int           @default(1)
+  slotStartAt                DateTime // computed UTC instant of slot start
+  totalAmount                Int // paise, snapshot at booking time
+  advanceAmount              Int // paise, = ceil(totalAmount * advancePct)
+  balanceAmount              Int // paise, = totalAmount - advanceAmount
+  currency                   String        @default("INR")
+  status                     BookingStatus @default(PENDING_PAYMENT)
+  razorpayOrderId            String?       @unique
+  razorpayPaymentId          String?       @unique
+  razorpayRefundId           String?       @unique
+  refundAmount               Int?
+  refundProcessedAt          DateTime?
+  cancellationPolicySnapshot Json // {fullRefundHours, halfRefundHours}
+  pricingSnapshot            Json // {breakdown: [...rules used], dayType}
+  notes                      String?
+  cancelledBy                String? // 'USER' | 'OWNER' | 'SYSTEM' | 'SUPER_ADMIN'
+  cancelledAt                DateTime?
+  createdAt                  DateTime      @default(now())
+  updatedAt                  DateTime      @updatedAt
+  box                        Box           @relation(fields: [boxId], references: [id], onDelete: Restrict)
+  venue                      Venue         @relation(fields: [venueId], references: [id], onDelete: Restrict)
+  owner                      Owner         @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  user                       User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  review                     Review?
+  invoice                    Invoice?
+
+  @@index([userId, status])
+  @@index([ownerId, status, slotStartAt])
+  @@index([slotStartAt])
+}
+
+// Partial unique index via raw SQL migration (Prisma doesn't support partial unique on multi-col):
+//   CREATE UNIQUE INDEX booking_active_slot_idx
+//     ON "Booking" ("boxId","slotDate","slotHour")
+//     WHERE status IN ('CONFIRMED','COMPLETED');
+
+// ============ Reviews ============
+model Review {
+  id             String   @id @default(cuid())
+  bookingId      String   @unique
+  venueId        String
+  userId         String
+  rating         Int // 1-5
+  text           String?
+  ownerReply     String?
+  ownerRepliedAt DateTime?
+  createdAt      DateTime @default(now())
+  booking        Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  venue          Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, createdAt])
+}
+
+// ============ Invoices ============
+model Invoice {
+  id            String   @id @default(cuid())
+  bookingId     String   @unique
+  ownerId       String
+  invoiceNumber String // formatted: "INV-{ownerSlug}-{YYYY}-{seq:6}"
+  pdfR2Key      String
+  cgst          Int
+  sgst          Int
+  taxableAmount Int
+  totalAmount   Int // taxableAmount + cgst + sgst
+  issuedAt      DateTime @default(now())
+  emailedAt     DateTime?
+  booking       Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([ownerId, invoiceNumber])
+}
+
+// ============ Subscriptions ============
+enum SubscriptionPlanCode {
+  BASIC
+  PRO
+}
+
+model SubscriptionPlan {
+  code             SubscriptionPlanCode @id
+  name             String
+  priceMonthly     Int // paise
+  maxVenues        Int // -1 for unlimited
+  maxBoxesPerVenue Int
+  features         String[]
+}
+
+model Subscription {
+  id            String               @id @default(cuid())
+  ownerId       String
+  planCode      SubscriptionPlanCode
+  periodStart   DateTime
+  periodEnd     DateTime
+  status        String // 'ACTIVE','PAST_DUE','CANCELLED'
+  lastPaymentId String?
+  createdAt     DateTime             @default(now())
+  owner         Owner                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+}
+
+// ============ Webhooks (idempotency) ============
+model WebhookEvent {
+  id          String   @id @default(cuid())
+  provider    String // 'razorpay'
+  eventId     String // razorpay event id
+  eventType   String
+  payloadHash String
+  receivedAt  DateTime @default(now())
+  processedAt DateTime?
+  status      String // 'RECEIVED','PROCESSED','FAILED'
+  error       String?
+
+  @@unique([provider, eventId])
+}
+
+// ============ Audit log ============
+enum ActorType {
+  USER
+  OWNER
+  SUPER_ADMIN
+  SYSTEM
+}
+
+model AuditLog {
+  id         String    @id @default(cuid())
+  actorType  ActorType
+  actorId    String?
+  action     String // e.g. 'venue.approve'
+  targetType String?
+  targetId   String?
+  metadata   Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime  @default(now())
+
+  @@index([createdAt])
+  @@index([actorType, actorId])
+  @@index([targetType, targetId])
+}
+
+// ============ Platform settings (singleton) ============
+model PlatformSettings {
+  id                    String   @id @default("singleton")
+  slotHoldTtlMinutes    Int      @default(8)
+  advancePercent        Int      @default(50)
+  cancelFullRefundHours Int      @default(24)
+  cancelHalfRefundHours Int      @default(6)
+  freeModeDbOverride    Boolean  @default(false) // env var still takes precedence
+  freeModeReason        String?
+  updatedAt             DateTime @updatedAt
+  updatedBy             String?
+}

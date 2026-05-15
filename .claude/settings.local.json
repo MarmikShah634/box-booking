@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(docker exec boxcricket-postgres *)",
+      "PowerShell(Set-Location C:\\\\work\\\\boxCricketBooking\\\\backend; $env:NODE_ENV=\"development\"; npx ts-node -r tsconfig-paths/register src/main.ts 2>&1 &)",
+      "PowerShell(Start-Sleep -Seconds 6; Invoke-RestMethod http://localhost:3001/health 2>&1 | ConvertTo-Json)",
+      "Bash(npx ts-node *)",
+      "Bash(curl -s http://localhost:3001/health)",
+      "PowerShell(Start-Sleep -Seconds 10; Invoke-RestMethod http://localhost:3001/health | ConvertTo-Json -Depth 5)",
+      "PowerShell(Get-Process *)",
+      "PowerShell(New-Item *)",
+      "Bash(curl -sf http://localhost:3001/health)"
+    ]
+  }
+}
