@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, ViewStyle } from 'react-native';
+import { DimensionValue, StyleSheet, ViewStyle } from 'react-native';
 import Animated, {
   interpolateColor,
   useAnimatedStyle,
@@ -11,7 +11,7 @@ import Animated, {
 import { Colors, Radius } from '@/constants/theme';
 
 interface ShimmerProps {
-  width: number | `${number}%`;
+  width: DimensionValue;
   height: number;
   style?: ViewStyle;
   borderRadius?: number;
@@ -40,7 +40,7 @@ export function Shimmer({ width, height, style, borderRadius = Radius.md }: Shim
     <Animated.View
       style={[
         styles.base,
-        { width: width as number, height, borderRadius },
+        { width, height, borderRadius },
         animatedStyle,
         style,
       ]}
