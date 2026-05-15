@@ -1,0 +1,43 @@
+{
+  "name": "boxcricket",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@9.0.0",
+  "workspaces": [
+    "backend",
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter backend start:dev\" \"pnpm --filter user-web dev\" \"pnpm --filter admin-web dev\"",
+    "build": "pnpm --filter backend build && pnpm --filter user-web build && pnpm --filter admin-web build",
+    "test": "pnpm --filter backend test",
+    "test:e2e": "jest --config tests/jest.config.ts --testPathPattern tests/e2e",
+    "lint": "pnpm --filter backend lint && pnpm --filter user-web lint && pnpm --filter admin-web lint",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.11",
+    "concurrently": "^8.2.2",
+    "husky": "^9.0.11",
+    "jest": "^29.7.0",
+    "lint-staged": "^15.2.0",
+    "puppeteer": "^24.43.1",
+    "ts-jest": "^29.1.2"
+  },
+  "lint-staged": {
+    "backend/src/**/*.ts": [
+      "eslint --max-warnings=0",
+      "bash -c 'cd backend && npx tsc --noEmit'"
+    ],
+    "apps/user-web/**/*.{ts,tsx}": [
+      "bash -c 'cd apps/user-web && npx tsc --noEmit'"
+    ],
+    "apps/admin-web/**/*.{ts,tsx}": [
+      "bash -c 'cd apps/admin-web && npx tsc --noEmit'"
+    ],
+    "apps/landing/**/*.{ts,tsx}": [
+      "bash -c 'cd apps/landing && npx tsc --noEmit'"
+    ]
+  }
+}

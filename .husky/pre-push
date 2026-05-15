@@ -1,0 +1,29 @@
+#!/bin/sh
+set -e
+
+echo "Running pre-push checks..."
+
+# Backend TypeScript build check
+echo "[backend] TypeScript check..."
+cd backend && npx tsc --noEmit 2>&1 || { echo "Backend TypeScript check FAILED"; exit 1; }
+cd ..
+
+# Backend lint
+echo "[backend] ESLint check..."
+cd backend && npx eslint "src/**/*.ts" --max-warnings=0 2>&1 || { echo "Backend lint FAILED"; exit 1; }
+cd ..
+
+# Frontend TypeScript + build checks
+for app in user-web admin-web landing; do
+  if [ -d "apps/$app" ]; then
+    echo "[$app] TypeScript check..."
+    cd "apps/$app" && npx tsc --noEmit 2>&1 || { echo "$app TypeScript check FAILED"; exit 1; }
+    cd ../..
+
+    echo "[$app] Build check..."
+    cd "apps/$app" && npx next build 2>&1 || { echo "$app build FAILED"; exit 1; }
+    cd ../..
+  fi
+done
+
+echo "All pre-push checks passed!"
