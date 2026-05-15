@@ -1,5 +1,3 @@
-import { cookies } from 'next/headers'
-
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
 type ApiSuccess<T> = { ok: true; data: T }
@@ -8,7 +6,6 @@ export type ApiResult<T> = ApiSuccess<T> | ApiError
 
 interface FetchOptions extends Omit<RequestInit, 'body'> {
   body?: unknown
-  serverCookies?: boolean
   stepUpToken?: string
   actionReason?: string
 }
@@ -19,7 +16,7 @@ async function request<T>(
   refreshPath: string,
   isRetry = false,
 ): Promise<ApiResult<T>> {
-  const { body, serverCookies, stepUpToken, actionReason, ...rest } = options
+  const { body, stepUpToken, actionReason, ...rest } = options
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -32,19 +29,6 @@ async function request<T>(
 
   if (actionReason) {
     headers['X-Action-Reason'] = actionReason
-  }
-
-  if (serverCookies) {
-    try {
-      const cookieStore = cookies()
-      const cookieHeader = cookieStore
-        .getAll()
-        .map((c) => `${c.name}=${c.value}`)
-        .join('; ')
-      if (cookieHeader) headers['Cookie'] = cookieHeader
-    } catch {
-      // cookies() only works in Server Components; ignore in client context
-    }
   }
 
   let res: Response

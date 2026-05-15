@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Mail, CheckCircle, AlertCircle } from 'lucide-react'
 import { ownerApi } from '@/lib/api'
 
-export default function VerifyEmailPage() {
+function VerifyEmailInner() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const email = searchParams.get('email') ?? ''
@@ -106,5 +106,13 @@ export default function VerifyEmailPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-gray-50" />}>
+      <VerifyEmailInner />
+    </Suspense>
   )
 }
