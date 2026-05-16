@@ -58,4 +58,27 @@ describe('EncryptionService', () => {
     const svc2 = new EncryptionService(badConfig);
     expect(() => svc2.onModuleInit()).toThrow('ENCRYPTION_KEY_HEX must be exactly 64 hex characters');
   });
+
+  it('uses deterministic fallback key in development when key is wrong length', () => {
+    const devConfig = {
+      getOrThrow: () => 'tooshort',
+      get: (key: string) => (key === 'NODE_ENV' ? 'development' : undefined),
+    } as unknown as ConfigService;
+    const svc2 = new EncryptionService(devConfig);
+    // Should not throw in development
+    expect(() => svc2.onModuleInit()).not.toThrow();
+    // Should be usable (encrypt/decrypt still works with fallback key)
+    const plain = 'test-dev-fallback';
+    expect(svc2.decrypt(svc2.encrypt(plain))).toBe(plain);
+  });
+
+  it('throws on wrong format with a non-hex 64-char string in production', () => {
+    // Provide 64 chars but with invalid hex chars ('z' repeated)
+    const badConfig = {
+      getOrThrow: () => 'z'.repeat(64),
+      get: (key: string) => (key === 'NODE_ENV' ? 'production' : undefined),
+    } as unknown as ConfigService;
+    const svc2 = new EncryptionService(badConfig);
+    expect(() => svc2.onModuleInit()).toThrow('ENCRYPTION_KEY_HEX must be exactly 64 hex characters');
+  });
 });
