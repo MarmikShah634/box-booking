@@ -21,6 +21,9 @@ const config: Config = {
   // Verbose output so each `it(...)` is listed individually in CI logs
   verbose: true,
 
+  // Run server-availability check before any test suite
+  globalSetup: '<rootDir>/e2e/setup.ts',
+
   globals: {
     'ts-jest': {
       tsconfig: {
@@ -31,7 +34,7 @@ const config: Config = {
         resolveJsonModule: true,
         skipLibCheck: true,
         // Allow the `fs` and `path` imports used in screenshotOnFailure helper
-        lib: ['ES2020'],
+        lib: ['ES2020', 'DOM'],
         types: ['node', 'jest'],
       },
     },

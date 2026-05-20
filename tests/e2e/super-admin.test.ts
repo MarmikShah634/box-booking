@@ -1,10 +1,11 @@
+import { adminWebIt as it } from './skip-when-offline'
 /**
  * Super-admin portal E2E tests.
  * All API calls are mocked — no running backend required.
  *
  * The super-admin portal runs on port 3001 under /super-admin/... path prefix.
  */
-import { type Browser, type Page } from 'puppeteer'
+import { type Browser, type Page } from 'playwright-core'
 import {
   launchBrowser,
   ADMIN_WEB,
@@ -74,7 +75,7 @@ const MOCK_USERS = [
 
 // Helper to inject super-admin auth into localStorage before page load
 const injectSuperAdminAuth = async (p: Page) => {
-  await p.evaluateOnNewDocument(() => {
+  await p.addInitScript(() => {
     localStorage.setItem(
       'super-admin-auth',
       JSON.stringify({
@@ -143,7 +144,7 @@ describe('Super Admin — Login Page', () => {
 
   beforeEach(async () => {
     page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 720 })
+    await page.setViewportSize({ width: 1280, height: 720 })
   })
 
   afterEach(async () => {
@@ -152,7 +153,7 @@ describe('Super Admin — Login Page', () => {
   })
 
   it('/super-admin/login renders email + password form', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin/login`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/login`, { waitUntil: 'networkidle' })
 
     const emailInput = await page.$('input[type="email"]')
     const passwordInput = await page.$('input[type="password"]')
@@ -162,13 +163,13 @@ describe('Super Admin — Login Page', () => {
   })
 
   it('login page has restricted-access identity strip', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin/login`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/login`, { waitUntil: 'networkidle' })
     const bodyText = await page.evaluate(() => document.body.innerText)
     expect(bodyText).toMatch(/super admin|restricted|platform admin/i)
   })
 
   it('login page has submit button', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin/login`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/login`, { waitUntil: 'networkidle' })
     const submitBtn = await page.$('button[type="submit"]')
     expect(submitBtn).toBeTruthy()
   })
@@ -182,7 +183,7 @@ describe('Super Admin — Login Page', () => {
       })
     })
 
-    await page.goto(`${ADMIN_WEB}/super-admin/login`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/login`, { waitUntil: 'networkidle' })
     await fillInput(page, 'input[type="email"]', 'hacker@example.com')
     await fillInput(page, 'input[type="password"]', 'wrongpass')
 
@@ -205,7 +206,7 @@ describe('Super Admin — Login Page', () => {
       })
     })
 
-    await page.goto(`${ADMIN_WEB}/super-admin/login`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/login`, { waitUntil: 'networkidle' })
     await fillInput(page, 'input[type="email"]', 'admin@example.com')
     await fillInput(page, 'input[type="password"]', 'wrongpass')
 
@@ -224,7 +225,7 @@ describe('Super Admin — Login Page', () => {
   })
 
   it('password field shows/hides password on eye button click', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin/login`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/login`, { waitUntil: 'networkidle' })
 
     const passwordInput = await page.$('input[type="password"]')
     expect(passwordInput).toBeTruthy()
@@ -244,7 +245,7 @@ describe('Super Admin — Login Page', () => {
   })
 
   it('login page shows "5 failed attempts" warning text', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin/login`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/login`, { waitUntil: 'networkidle' })
     const bodyText = await page.evaluate(() => document.body.innerText)
     expect(bodyText).toMatch(/5 failed|attempts|lock/i)
   })
@@ -267,7 +268,7 @@ describe('Super Admin — Locked Page', () => {
 
   beforeEach(async () => {
     page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 720 })
+    await page.setViewportSize({ width: 1280, height: 720 })
   })
 
   afterEach(async () => {
@@ -275,19 +276,19 @@ describe('Super Admin — Locked Page', () => {
   })
 
   it('/super-admin/locked shows account locked message', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin/locked`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/locked`, { waitUntil: 'networkidle' })
     await waitForText(page, 'Account Locked')
   })
 
   it('locked page has link back to login', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin/locked`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/locked`, { waitUntil: 'networkidle' })
 
     const loginLink = await page.$('a[href*="/super-admin/login"]')
     expect(loginLink).toBeTruthy()
   })
 
   it('locked page explains the lockout duration', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin/locked`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/locked`, { waitUntil: 'networkidle' })
     const bodyText = await page.evaluate(() => document.body.innerText)
     expect(bodyText).toMatch(/30 minutes|locked|attempts/i)
   })
@@ -310,7 +311,7 @@ describe('Super Admin — Auth Guards', () => {
 
   beforeEach(async () => {
     page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 720 })
+    await page.setViewportSize({ width: 1280, height: 720 })
   })
 
   afterEach(async () => {
@@ -318,7 +319,7 @@ describe('Super Admin — Auth Guards', () => {
   })
 
   it('unauthenticated access to /super-admin redirects to login', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin`, { waitUntil: 'networkidle' })
     await page.waitForFunction(
       () => window.location.pathname.includes('/login'),
       { timeout: 8000 },
@@ -326,13 +327,13 @@ describe('Super Admin — Auth Guards', () => {
   })
 
   it('unauthenticated access to /super-admin/owners redirects to login', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin/owners`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/owners`, { waitUntil: 'networkidle' })
     const url = page.url()
     expect(url).toContain('/login')
   })
 
   it('unauthenticated access to /super-admin/users redirects to login', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin/users`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/users`, { waitUntil: 'networkidle' })
     const url = page.url()
     expect(url).toContain('/login')
   })
@@ -355,7 +356,7 @@ describe('Super Admin — Dashboard (mocked)', () => {
 
   beforeEach(async () => {
     page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 800 })
+    await page.setViewportSize({ width: 1280, height: 800 })
     await injectSuperAdminAuth(page)
     await mockSuperAdminApis(page)
   })
@@ -366,7 +367,7 @@ describe('Super Admin — Dashboard (mocked)', () => {
   })
 
   it('dashboard page loads — shows KPI tiles or redirects to login', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 800))
 
     const bodyText = await page.evaluate(() => document.body.innerText)
@@ -376,7 +377,7 @@ describe('Super Admin — Dashboard (mocked)', () => {
   })
 
   it('dashboard KPI tiles contain expected metric labels (when authenticated)', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 800))
 
     const url = page.url()
@@ -391,7 +392,7 @@ describe('Super Admin — Dashboard (mocked)', () => {
   })
 
   it('dashboard quick links include Owners, Venues, Bookings', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 800))
 
     const url = page.url()
@@ -424,7 +425,7 @@ describe('Super Admin — Owners List (mocked)', () => {
 
   beforeEach(async () => {
     page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 800 })
+    await page.setViewportSize({ width: 1280, height: 800 })
     await injectSuperAdminAuth(page)
     await mockSuperAdminApis(page)
   })
@@ -435,7 +436,7 @@ describe('Super Admin — Owners List (mocked)', () => {
   })
 
   it('owners list renders with a search bar', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin/owners`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/owners`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 800))
 
     const url = page.url()
@@ -450,7 +451,7 @@ describe('Super Admin — Owners List (mocked)', () => {
   })
 
   it('owners list shows owner names from mock data', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin/owners`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/owners`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 800))
 
     const url = page.url()
@@ -464,7 +465,7 @@ describe('Super Admin — Owners List (mocked)', () => {
   })
 
   it('owners table has Name, Email, KYC, Plan columns', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin/owners`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/owners`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 800))
 
     const url = page.url()
@@ -481,7 +482,7 @@ describe('Super Admin — Owners List (mocked)', () => {
   })
 
   it('clicking owner row "View →" navigates to owner detail page', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin/owners`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/owners`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 800))
 
     const url = page.url()
@@ -503,7 +504,7 @@ describe('Super Admin — Owners List (mocked)', () => {
   })
 
   it('KYC filter dropdown is present', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin/owners`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/owners`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 800))
 
     const url = page.url()
@@ -534,7 +535,7 @@ describe('Super Admin — Users List (mocked)', () => {
 
   beforeEach(async () => {
     page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 800 })
+    await page.setViewportSize({ width: 1280, height: 800 })
     await injectSuperAdminAuth(page)
     await mockSuperAdminApis(page)
   })
@@ -545,7 +546,7 @@ describe('Super Admin — Users List (mocked)', () => {
   })
 
   it('users list renders with a search bar', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin/users`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/users`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 800))
 
     const url = page.url()
@@ -560,7 +561,7 @@ describe('Super Admin — Users List (mocked)', () => {
   })
 
   it('users list shows user names from mock data', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin/users`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/users`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 800))
 
     const url = page.url()
@@ -574,7 +575,7 @@ describe('Super Admin — Users List (mocked)', () => {
   })
 
   it('users table has Name, Email, Phone, Status columns', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin/users`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/users`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 800))
 
     const url = page.url()
@@ -590,7 +591,7 @@ describe('Super Admin — Users List (mocked)', () => {
   })
 
   it('users list has PII privacy notice', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin/users`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/users`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 800))
 
     const url = page.url()
@@ -605,7 +606,7 @@ describe('Super Admin — Users List (mocked)', () => {
   })
 
   it('blocked user row shows "Unblock" action, active user shows "Block"', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin/users`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/users`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 800))
 
     const url = page.url()
@@ -637,7 +638,7 @@ describe('Super Admin — Owner Detail Navigation (mocked)', () => {
 
   beforeEach(async () => {
     page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 800 })
+    await page.setViewportSize({ width: 1280, height: 800 })
     await injectSuperAdminAuth(page)
     await mockSuperAdminApis(page)
   })
@@ -648,7 +649,7 @@ describe('Super Admin — Owner Detail Navigation (mocked)', () => {
   })
 
   it('owner detail page at /super-admin/owners/[id] renders owner info', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin/owners/o1`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/owners/o1`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 800))
 
     const url = page.url()
@@ -662,7 +663,7 @@ describe('Super Admin — Owner Detail Navigation (mocked)', () => {
   })
 
   it('owner detail page has a back navigation button', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin/owners/o1`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/owners/o1`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 800))
 
     const url = page.url()
@@ -681,7 +682,7 @@ describe('Super Admin — Owner Detail Navigation (mocked)', () => {
   })
 
   it('clicking "View →" on owners list navigates to correct owner detail URL', async () => {
-    await page.goto(`${ADMIN_WEB}/super-admin/owners`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/super-admin/owners`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 800))
 
     const url = page.url()

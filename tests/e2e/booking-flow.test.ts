@@ -1,3 +1,4 @@
+import { userWebIt as it } from './skip-when-offline'
 /**
  * Booking flow E2E tests.
  *
@@ -7,13 +8,13 @@
  *
  * Run with: TEST_SECRET=test-secret npx jest tests/e2e/booking-flow.test.ts
  */
-import { type Browser, type Page } from 'puppeteer'
+import { type Browser, type Page } from 'playwright-core'
 import {
   launchBrowser,
   USER_WEB,
   waitForText,
   fillInput,
-  apiSeedTestData,
+  seedTestData,
   screenshotOnFailure,
   elementExists,
 } from './helpers'
@@ -52,11 +53,11 @@ describe('Booking Flow (seeded)', () => {
     browser = await launchBrowser()
     // Seed a venue with an available box
     try {
-      const seeded = await apiSeedTestData({ phone: TEST_PHONE })
-      venueSlug = seeded.venueSlug ?? 'test-venue-1'
+      await seedTestData('/test/seed', { phone: TEST_PHONE })
     } catch {
-      venueSlug = 'test-venue-1'
+      // ignore — seeding is optional, venueSlug defaults to 'test-venue-1'
     }
+    venueSlug = 'test-venue-1'
   })
 
   afterAll(async () => {
@@ -65,7 +66,7 @@ describe('Booking Flow (seeded)', () => {
 
   beforeEach(async () => {
     page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 800 })
+    await page.setViewportSize({ width: 1280, height: 800 })
   })
 
   afterEach(async () => {
@@ -73,14 +74,14 @@ describe('Booking Flow (seeded)', () => {
   })
 
   it('venue page shows box listing', async () => {
-    await page.goto(`${USER_WEB}/venue/${venueSlug}`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/venue/${venueSlug}`, { waitUntil: 'networkidle' })
     const bodyText = await page.evaluate(() => document.body.innerText)
     // Should show venue name or a fallback
     expect(bodyText.length).toBeGreaterThan(100)
   })
 
   it('redirects to login when unauthenticated user tries to book', async () => {
-    await page.goto(`${USER_WEB}/book/test-box-1`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/book/test-box-1`, { waitUntil: 'networkidle' })
     const url = page.url()
     const bodyText = await page.evaluate(() => document.body.innerText)
     const isLoginPage = url.includes('/auth/login') || bodyText.includes('Sign in')
@@ -94,13 +95,13 @@ describe('Booking Flow (seeded)', () => {
       return
     }
     // Set a test auth cookie
-    await page.setCookie({
+    await page.context().addCookies([{
       name: 'refresh_user',
       value: 'test-refresh-token',
       domain: 'localhost',
       path: '/',
-    })
-    await page.goto(`${USER_WEB}/book/test-box-1`, { waitUntil: 'networkidle2' })
+    }])
+    await page.goto(`${USER_WEB}/book/test-box-1`, { waitUntil: 'networkidle' })
     await waitForText(page, 'Select date')
   })
 })
@@ -122,7 +123,7 @@ describe('Booking Flow — Unauthenticated Guards', () => {
 
   beforeEach(async () => {
     page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 800 })
+    await page.setViewportSize({ width: 1280, height: 800 })
   })
 
   afterEach(async () => {
@@ -131,7 +132,7 @@ describe('Booking Flow — Unauthenticated Guards', () => {
   })
 
   it('unauthenticated user navigating to /book/[boxId] is redirected to login', async () => {
-    await page.goto(`${USER_WEB}/book/box-1`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/book/box-1`, { waitUntil: 'networkidle' })
     const url = page.url()
     const bodyText = await page.evaluate(() => document.body.innerText)
     const isGuarded = url.includes('/auth/login') || bodyText.match(/sign in|login/i) !== null
@@ -140,8 +141,8 @@ describe('Booking Flow — Unauthenticated Guards', () => {
 
   it('the "Cancel" / back button on book page navigates away', async () => {
     // Navigate to a page first, then to booking
-    await page.goto(`${USER_WEB}/`, { waitUntil: 'networkidle2' })
-    await page.goto(`${USER_WEB}/book/box-1`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/`, { waitUntil: 'networkidle' })
+    await page.goto(`${USER_WEB}/book/box-1`, { waitUntil: 'networkidle' })
 
     const url = page.url()
     // If redirected to login, test passes — guard is working
@@ -177,15 +178,15 @@ describe('Booking Flow — Mocked Authenticated Flow', () => {
 
   beforeEach(async () => {
     page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 800 })
+    await page.setViewportSize({ width: 1280, height: 800 })
 
     // Set a fake session cookie so middleware passes the user through
-    await page.setCookie({
+    await page.context().addCookies([{
       name: 'refresh_user',
       value: 'mock-refresh-token',
       domain: 'localhost',
       path: '/',
-    })
+    }])
 
     // Mock current user endpoint
     await page.route('**/api/v1/auth/user/me', (route) => {
@@ -212,7 +213,7 @@ describe('Booking Flow — Mocked Authenticated Flow', () => {
   })
 
   it('book page shows "Select date & slot" heading when authenticated', async () => {
-    await page.goto(`${USER_WEB}/book/box-1`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/book/box-1`, { waitUntil: 'networkidle' })
     const bodyText = await page.evaluate(() => document.body.innerText)
 
     // Possible outcomes: date picker OR redirect to login (middleware requires valid JWT)
@@ -223,7 +224,7 @@ describe('Booking Flow — Mocked Authenticated Flow', () => {
   })
 
   it('book page shows calendar with date buttons', async () => {
-    await page.goto(`${USER_WEB}/book/box-1`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/book/box-1`, { waitUntil: 'networkidle' })
     const url = page.url()
     if (url.includes('/auth/login')) {
       // Guard is active — test passes as the page correctly blocks unauthenticated access
@@ -246,7 +247,7 @@ describe('Booking Flow — Mocked Authenticated Flow', () => {
       })
     })
 
-    await page.goto(`${USER_WEB}/book/box-1`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/book/box-1`, { waitUntil: 'networkidle' })
     const url = page.url()
     if (url.includes('/auth/login')) {
       expect(url).toContain('/auth/login')
@@ -261,7 +262,7 @@ describe('Booking Flow — Mocked Authenticated Flow', () => {
   })
 
   it('price breakdown shows base price, GST label, and total', async () => {
-    await page.goto(`${USER_WEB}/book/box-1`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/book/box-1`, { waitUntil: 'networkidle' })
     const url = page.url()
     if (url.includes('/auth/login')) {
       expect(url).toContain('/auth/login')
@@ -290,7 +291,7 @@ describe('Booking Flow — Hold Expiry (mocked)', () => {
 
   beforeEach(async () => {
     page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 800 })
+    await page.setViewportSize({ width: 1280, height: 800 })
   })
 
   afterEach(async () => {
@@ -321,11 +322,11 @@ describe('Booking Flow — Hold Expiry (mocked)', () => {
       version: 0,
     }
 
-    await page.evaluateOnNewDocument((hold) => {
+    await page.addInitScript((hold: unknown) => {
       localStorage.setItem('hold-store', JSON.stringify(hold))
     }, expiredHold)
 
-    await page.goto(`${USER_WEB}/book/box-1`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/book/box-1`, { waitUntil: 'networkidle' })
     const url = page.url()
     if (url.includes('/auth/login')) {
       expect(url).toContain('/auth/login')
@@ -351,7 +352,7 @@ describe('My Bookings Page', () => {
   beforeAll(async () => {
     browser = await launchBrowser()
     page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 800 })
+    await page.setViewportSize({ width: 1280, height: 800 })
   })
 
   afterAll(async () => {
@@ -359,15 +360,16 @@ describe('My Bookings Page', () => {
   })
 
   it('redirects to login when unauthenticated', async () => {
-    await page.goto(`${USER_WEB}/me`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/me`, { waitUntil: 'networkidle' })
     await page.waitForFunction(
       () => window.location.pathname.startsWith('/auth/login'),
+      undefined,
       { timeout: 5000 },
     )
   })
 
   it('booking detail page 404s for invalid id', async () => {
-    await page.goto(`${USER_WEB}/me/bookings/nonexistent-booking-id`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/me/bookings/nonexistent-booking-id`, { waitUntil: 'networkidle' })
     const bodyText = await page.evaluate(() => document.body.innerText)
     // Either 404 page or redirect to login
     const is404OrLogin =

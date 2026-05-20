@@ -1,9 +1,10 @@
+import { userWebIt as it } from './skip-when-offline'
 /**
  * Venue browsing E2E tests.
  *
  * All API calls are mocked via page.route() so tests run without a backend.
  */
-import { type Browser, type Page } from 'puppeteer'
+import { type Browser, type Page } from 'playwright-core'
 import {
   launchBrowser,
   USER_WEB,
@@ -94,7 +95,7 @@ describe('Venue Browsing — Home Page', () => {
 
   beforeEach(async () => {
     page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 800 })
+    await page.setViewportSize({ width: 1280, height: 800 })
 
     // Mock the featured venues API
     await page.route('**/venues/public**', (route) => {
@@ -112,7 +113,7 @@ describe('Venue Browsing — Home Page', () => {
   })
 
   it('home page loads and shows featured venues section', async () => {
-    await page.goto(`${USER_WEB}/`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/`, { waitUntil: 'networkidle' })
 
     // Either the actual API data or mock fallback renders venue cards
     const bodyText = await page.evaluate(() => document.body.innerText)
@@ -120,12 +121,12 @@ describe('Venue Browsing — Home Page', () => {
   })
 
   it('home page shows a "Browse by city" section', async () => {
-    await page.goto(`${USER_WEB}/`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/`, { waitUntil: 'networkidle' })
     await waitForText(page, 'Browse by city')
   })
 
   it('city cards link to /city/[slug]', async () => {
-    await page.goto(`${USER_WEB}/`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/`, { waitUntil: 'networkidle' })
     await waitForText(page, 'Browse by city')
 
     const cityLinks: string[] = await page.evaluate(() =>
@@ -138,7 +139,7 @@ describe('Venue Browsing — Home Page', () => {
   })
 
   it('clicking a city card navigates to /city/[slug]', async () => {
-    await page.goto(`${USER_WEB}/`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/`, { waitUntil: 'networkidle' })
     await waitForText(page, 'Browse by city')
 
     await Promise.all([
@@ -150,7 +151,7 @@ describe('Venue Browsing — Home Page', () => {
   })
 
   it('venue card shows name, city and price info', async () => {
-    await page.goto(`${USER_WEB}/`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 1000)) // allow Suspense to resolve
 
     const bodyText = await page.evaluate(() => document.body.innerText)
@@ -159,7 +160,7 @@ describe('Venue Browsing — Home Page', () => {
   })
 
   it('venue cards link to /venue/[slug]', async () => {
-    await page.goto(`${USER_WEB}/`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 1200))
 
     const venueLinks: string[] = await page.evaluate(() =>
@@ -176,7 +177,7 @@ describe('Venue Browsing — Home Page', () => {
   })
 
   it('"Top-rated venues" heading is visible', async () => {
-    await page.goto(`${USER_WEB}/`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 1200))
 
     const bodyText = await page.evaluate(() => document.body.innerText)
@@ -201,7 +202,7 @@ describe('Venue Browsing — City Listing Page', () => {
 
   beforeEach(async () => {
     page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 800 })
+    await page.setViewportSize({ width: 1280, height: 800 })
 
     // Mock city venue API
     await page.route('**/venues/public**', (route) => {
@@ -224,14 +225,14 @@ describe('Venue Browsing — City Listing Page', () => {
   })
 
   it('city page loads for /city/bangalore', async () => {
-    await page.goto(`${USER_WEB}/city/bangalore`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/city/bangalore`, { waitUntil: 'networkidle' })
     const bodyText = await page.evaluate(() => document.body.innerText)
     expect(bodyText).toMatch(/bangalore|venue|cricket/i)
     expect(bodyText).not.toMatch(/404|not found/i)
   })
 
   it('city page shows venue cards or empty state', async () => {
-    await page.goto(`${USER_WEB}/city/bangalore`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/city/bangalore`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 800))
 
     const bodyText = await page.evaluate(() => document.body.innerText)
@@ -241,7 +242,7 @@ describe('Venue Browsing — City Listing Page', () => {
   })
 
   it('city page for unknown city returns graceful fallback (no crash)', async () => {
-    await page.goto(`${USER_WEB}/city/nowhere-land`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/city/nowhere-land`, { waitUntil: 'networkidle' })
     const bodyText = await page.evaluate(() => document.body.innerText)
     // Should not hard-crash; shows empty state or 404 page gracefully
     expect(bodyText.length).toBeGreaterThan(0)
@@ -265,7 +266,7 @@ describe('Venue Browsing — Venue Detail Page', () => {
 
   beforeEach(async () => {
     page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 800 })
+    await page.setViewportSize({ width: 1280, height: 800 })
 
     // Mock the venue detail endpoint
     await page.route('**/api/v1/venues/public/**', (route) => {
@@ -283,14 +284,14 @@ describe('Venue Browsing — Venue Detail Page', () => {
   })
 
   it('venue detail page renders the venue name as h1', async () => {
-    await page.goto(`${USER_WEB}/venue/venue-1`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/venue/venue-1`, { waitUntil: 'networkidle' })
 
     const h1 = await page.$eval('h1', (el) => el.textContent?.trim() ?? '')
     expect(h1.length).toBeGreaterThan(3)
   })
 
   it('venue detail page shows amenity chips', async () => {
-    await page.goto(`${USER_WEB}/venue/venue-1`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/venue/venue-1`, { waitUntil: 'networkidle' })
 
     const bodyText = await page.evaluate(() => document.body.innerText)
     // MOCK_VENUE_DETAIL has amenities: Floodlights, Parking, Washroom, Equipment, Cafeteria
@@ -298,18 +299,18 @@ describe('Venue Browsing — Venue Detail Page', () => {
   })
 
   it('venue detail page shows "Available boxes" section', async () => {
-    await page.goto(`${USER_WEB}/venue/venue-1`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/venue/venue-1`, { waitUntil: 'networkidle' })
     await waitForText(page, 'Available boxes')
   })
 
   it('venue detail page shows box names from the boxes list', async () => {
-    await page.goto(`${USER_WEB}/venue/venue-1`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/venue/venue-1`, { waitUntil: 'networkidle' })
     const bodyText = await page.evaluate(() => document.body.innerText)
     expect(bodyText).toMatch(/box/i)
   })
 
   it('"Book" button on a box navigates to /book/[boxId]', async () => {
-    await page.goto(`${USER_WEB}/venue/venue-1`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/venue/venue-1`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 600))
 
     // Find a Book link/button leading to /book/
@@ -326,8 +327,8 @@ describe('Venue Browsing — Venue Detail Page', () => {
 
   it('back navigation from venue detail returns to previous page', async () => {
     // First navigate to the home page, then to venue detail
-    await page.goto(`${USER_WEB}/`, { waitUntil: 'networkidle2' })
-    await page.goto(`${USER_WEB}/venue/venue-1`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/`, { waitUntil: 'networkidle' })
+    await page.goto(`${USER_WEB}/venue/venue-1`, { waitUntil: 'networkidle' })
 
     await page.goBack()
     await new Promise((r) => setTimeout(r, 400))
@@ -337,14 +338,14 @@ describe('Venue Browsing — Venue Detail Page', () => {
   })
 
   it('venue detail shows rating and review count', async () => {
-    await page.goto(`${USER_WEB}/venue/venue-1`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/venue/venue-1`, { waitUntil: 'networkidle' })
     const bodyText = await page.evaluate(() => document.body.innerText)
     // MOCK_VENUE_DETAIL has rating 4.7 and 143 reviews
     expect(bodyText).toMatch(/4\.[0-9]|reviews?/i)
   })
 
   it('venue detail shows location / address information', async () => {
-    await page.goto(`${USER_WEB}/venue/venue-1`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/venue/venue-1`, { waitUntil: 'networkidle' })
     const bodyText = await page.evaluate(() => document.body.innerText)
     expect(bodyText).toMatch(/koramangala|bangalore|location/i)
   })

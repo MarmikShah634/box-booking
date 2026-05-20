@@ -1,4 +1,5 @@
-import { type Browser, type Page } from 'puppeteer'
+import { userWebIt as it } from './skip-when-offline'
+import { type Browser, type Page } from 'playwright-core'
 import {
   launchBrowser,
   USER_WEB,
@@ -26,7 +27,7 @@ describe('User Authentication Flow', () => {
 
   beforeEach(async () => {
     page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 720 })
+    await page.setViewportSize({ width: 1280, height: 720 })
   })
 
   afterEach(async () => {
@@ -34,33 +35,33 @@ describe('User Authentication Flow', () => {
   })
 
   it('shows login page at /auth/login', async () => {
-    await page.goto(`${USER_WEB}/auth/login`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/auth/login`, { waitUntil: 'networkidle' })
     await waitForText(page, 'Sign in to BoxCricket')
     const input = await page.$('input[type="text"], input[type="tel"]')
     expect(input).toBeTruthy()
   })
 
   it('validates phone number format', async () => {
-    await page.goto(`${USER_WEB}/auth/login`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/auth/login`, { waitUntil: 'networkidle' })
     await fillInput(page, 'input[type="text"], input[type="tel"]', '123')
     await page.keyboard.press('Enter')
     await waitForText(page, 'valid 10-digit')
   })
 
   it('redirects unauthenticated user from /me to /auth/login', async () => {
-    await page.goto(`${USER_WEB}/me`, { waitUntil: 'networkidle2' })
-    await page.waitForFunction(() => window.location.pathname.startsWith('/auth/login'), { timeout: 5000 })
+    await page.goto(`${USER_WEB}/me`, { waitUntil: 'networkidle' })
+    await page.waitForFunction(() => window.location.pathname.startsWith('/auth/login'), undefined, { timeout: 5000 })
   })
 
   it('shows OTP input on verify page', async () => {
-    await page.goto(`${USER_WEB}/auth/verify?phone=9999999999`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/auth/verify?phone=9999999999`, { waitUntil: 'networkidle' })
     await waitForText(page, 'Enter OTP')
     const inputs = await page.$$('input[type="text"][maxlength="1"]')
     expect(inputs).toHaveLength(6)
   })
 
   it('shows resend button on verify page', async () => {
-    await page.goto(`${USER_WEB}/auth/verify?phone=9999999999`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/auth/verify?phone=9999999999`, { waitUntil: 'networkidle' })
     await waitForText(page, 'Resend OTP')
   })
 })
@@ -82,7 +83,7 @@ describe('User Login Page — Extended', () => {
 
   beforeEach(async () => {
     page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 720 })
+    await page.setViewportSize({ width: 1280, height: 720 })
   })
 
   afterEach(async () => {
@@ -91,7 +92,7 @@ describe('User Login Page — Extended', () => {
   })
 
   it('login page renders phone input and Send OTP button', async () => {
-    await page.goto(`${USER_WEB}/auth/login`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/auth/login`, { waitUntil: 'networkidle' })
 
     const phoneInput = await page.$('input[type="text"], input[type="tel"]')
     expect(phoneInput).toBeTruthy()
@@ -101,7 +102,7 @@ describe('User Login Page — Extended', () => {
   })
 
   it('typing fewer than 10 digits keeps form in error state on submit', async () => {
-    await page.goto(`${USER_WEB}/auth/login`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/auth/login`, { waitUntil: 'networkidle' })
 
     await fillInput(page, 'input[type="text"], input[type="tel"]', '98765')
     // Submit the form
@@ -120,7 +121,7 @@ describe('User Login Page — Extended', () => {
   })
 
   it('10-digit phone number can be typed into the input', async () => {
-    await page.goto(`${USER_WEB}/auth/login`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/auth/login`, { waitUntil: 'networkidle' })
 
     const input = await page.$('input[type="text"], input[type="tel"]')
     expect(input).toBeTruthy()
@@ -140,7 +141,7 @@ describe('User Login Page — Extended', () => {
       void route.fulfill({ status: 204, body: '' })
     })
 
-    await page.goto(`${USER_WEB}/auth/login`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/auth/login`, { waitUntil: 'networkidle' })
     await fillInput(page, 'input[type="text"], input[type="tel"]', '9876543210')
 
     await Promise.all([
@@ -171,8 +172,8 @@ describe('User OTP Verify Page — Extended', () => {
 
   beforeEach(async () => {
     page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 720 })
-    await page.goto(`${USER_WEB}/auth/verify?phone=9876543210`, { waitUntil: 'networkidle2' })
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await page.goto(`${USER_WEB}/auth/verify?phone=9876543210`, { waitUntil: 'networkidle' })
   })
 
   afterEach(async () => {
@@ -306,7 +307,7 @@ describe('User Protected Routes', () => {
 
   beforeEach(async () => {
     page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 720 })
+    await page.setViewportSize({ width: 1280, height: 720 })
   })
 
   afterEach(async () => {
@@ -314,7 +315,7 @@ describe('User Protected Routes', () => {
   })
 
   it('/me page is protected: unauthenticated access redirects to /auth/login', async () => {
-    await page.goto(`${USER_WEB}/me`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/me`, { waitUntil: 'networkidle' })
     await page.waitForFunction(
       () => window.location.pathname.startsWith('/auth/login'),
       { timeout: 8000 },
@@ -322,7 +323,7 @@ describe('User Protected Routes', () => {
   })
 
   it('/me/profile page is protected: unauthenticated access redirects to /auth/login', async () => {
-    await page.goto(`${USER_WEB}/me/profile`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/me/profile`, { waitUntil: 'networkidle' })
     const url = await page.evaluate(() => window.location.href)
     expect(url).toContain('/auth/login')
   })
@@ -338,7 +339,7 @@ describe('User Protected Routes', () => {
     })
 
     // Simulate: navigate to home and verify user is not in a logged-in state
-    await page.goto(`${USER_WEB}/`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/`, { waitUntil: 'networkidle' })
     // Without a valid token cookie the header should show "Login" not a user name
     const headerText = await page.evaluate(() => {
       const header = document.querySelector('header')
@@ -350,7 +351,7 @@ describe('User Protected Routes', () => {
   })
 
   it('protected /me/data page redirects unauthenticated users', async () => {
-    await page.goto(`${USER_WEB}/me/data`, { waitUntil: 'networkidle2' })
+    await page.goto(`${USER_WEB}/me/data`, { waitUntil: 'networkidle' })
     const url = page.url()
     const bodyText = await page.evaluate(() => document.body.innerText)
     const isLoginOrRedirect =

@@ -1,10 +1,11 @@
+import { adminWebIt as it } from './skip-when-offline'
 /**
  * Owner portal E2E tests.
  * All API calls are mocked — no running backend required.
  *
  * The owner portal runs on port 3001 under the /owner/... path prefix.
  */
-import { type Browser, type Page } from 'puppeteer'
+import { type Browser, type Page } from 'playwright-core'
 import {
   launchBrowser,
   ADMIN_WEB,
@@ -77,7 +78,7 @@ describe('Owner Portal — Login Page', () => {
 
   beforeEach(async () => {
     page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 720 })
+    await page.setViewportSize({ width: 1280, height: 720 })
   })
 
   afterEach(async () => {
@@ -86,7 +87,7 @@ describe('Owner Portal — Login Page', () => {
   })
 
   it('/owner/login renders email + password form', async () => {
-    await page.goto(`${ADMIN_WEB}/owner/login`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/owner/login`, { waitUntil: 'networkidle' })
 
     const emailInput = await page.$('input[type="email"]')
     const passwordInput = await page.$('input[type="password"]')
@@ -98,12 +99,12 @@ describe('Owner Portal — Login Page', () => {
   })
 
   it('login page has "Owner Portal" heading', async () => {
-    await page.goto(`${ADMIN_WEB}/owner/login`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/owner/login`, { waitUntil: 'networkidle' })
     await waitForText(page, 'Owner Portal')
   })
 
   it('submitting empty form shows HTML5 or custom validation errors', async () => {
-    await page.goto(`${ADMIN_WEB}/owner/login`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/owner/login`, { waitUntil: 'networkidle' })
 
     const submitBtn = await page.$('button[type="submit"]')
     await submitBtn!.click()
@@ -123,7 +124,7 @@ describe('Owner Portal — Login Page', () => {
       })
     })
 
-    await page.goto(`${ADMIN_WEB}/owner/login`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/owner/login`, { waitUntil: 'networkidle' })
     await fillInput(page, 'input[type="email"]', 'owner@example.com')
     await fillInput(page, 'input[type="password"]', 'wrongpassword')
 
@@ -149,7 +150,7 @@ describe('Owner Portal — Login Page', () => {
       })
     })
 
-    await page.goto(`${ADMIN_WEB}/owner/login`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/owner/login`, { waitUntil: 'networkidle' })
     await fillInput(page, 'input[type="email"]', 'locked@example.com')
     await fillInput(page, 'input[type="password"]', 'somepassword')
 
@@ -164,13 +165,13 @@ describe('Owner Portal — Login Page', () => {
   })
 
   it('forgot password page has an email input', async () => {
-    await page.goto(`${ADMIN_WEB}/owner/forgot-password`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/owner/forgot-password`, { waitUntil: 'networkidle' })
     const emailInput = await page.$('input[type="email"]')
     expect(emailInput).toBeTruthy()
   })
 
   it('register page is accessible and contains a form', async () => {
-    await page.goto(`${ADMIN_WEB}/owner/register`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/owner/register`, { waitUntil: 'networkidle' })
     const bodyText = await page.evaluate(() => document.body.innerText)
     expect(bodyText.toLowerCase()).toMatch(/register|sign up|create/i)
   })
@@ -193,7 +194,7 @@ describe('Owner Portal — Auth Guards', () => {
 
   beforeEach(async () => {
     page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 720 })
+    await page.setViewportSize({ width: 1280, height: 720 })
   })
 
   afterEach(async () => {
@@ -201,21 +202,22 @@ describe('Owner Portal — Auth Guards', () => {
   })
 
   it('unauthenticated access to /owner redirects to /owner/login', async () => {
-    await page.goto(`${ADMIN_WEB}/owner`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/owner`, { waitUntil: 'networkidle' })
     await page.waitForFunction(
       () => window.location.pathname.includes('/login'),
+      undefined,
       { timeout: 8000 },
     )
   })
 
   it('unauthenticated access to /owner/venues redirects to login', async () => {
-    await page.goto(`${ADMIN_WEB}/owner/venues`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/owner/venues`, { waitUntil: 'networkidle' })
     const url = page.url()
     expect(url).toContain('/login')
   })
 
   it('unauthenticated access to /owner/bookings redirects to login', async () => {
-    await page.goto(`${ADMIN_WEB}/owner/bookings`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/owner/bookings`, { waitUntil: 'networkidle' })
     const url = page.url()
     expect(url).toContain('/login')
   })
@@ -229,7 +231,7 @@ describe('Owner Portal — Dashboard (mocked)', () => {
   let page: Page
 
   const injectOwnerAuth = async (p: Page) => {
-    await p.evaluateOnNewDocument(() => {
+    await p.addInitScript(() => {
       localStorage.setItem(
         'owner-auth',
         JSON.stringify({
@@ -261,7 +263,7 @@ describe('Owner Portal — Dashboard (mocked)', () => {
 
   beforeEach(async () => {
     page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 800 })
+    await page.setViewportSize({ width: 1280, height: 800 })
 
     await injectOwnerAuth(page)
 
@@ -317,7 +319,7 @@ describe('Owner Portal — Dashboard (mocked)', () => {
   })
 
   it('dashboard page loads — either shows stats or redirects to login', async () => {
-    await page.goto(`${ADMIN_WEB}/owner`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/owner`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 800))
 
     const bodyText = await page.evaluate(() => document.body.innerText)
@@ -328,7 +330,7 @@ describe('Owner Portal — Dashboard (mocked)', () => {
   })
 
   it('dashboard stat tiles — page body contains booking/revenue metrics (when authenticated)', async () => {
-    await page.goto(`${ADMIN_WEB}/owner`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/owner`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 800))
 
     const url = page.url()
@@ -345,7 +347,7 @@ describe('Owner Portal — Dashboard (mocked)', () => {
   })
 
   it('venues tab shows venue list', async () => {
-    await page.goto(`${ADMIN_WEB}/owner/venues`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/owner/venues`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 800))
 
     const url = page.url()
@@ -370,7 +372,7 @@ describe('Owner Portal — Dashboard (mocked)', () => {
       })
     })
 
-    await page.goto(`${ADMIN_WEB}/owner/venues`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/owner/venues`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 800))
 
     const url = page.url()
@@ -393,7 +395,7 @@ describe('Owner Portal — Dashboard (mocked)', () => {
   })
 
   it('bookings tab shows bookings list', async () => {
-    await page.goto(`${ADMIN_WEB}/owner/bookings`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/owner/bookings`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 800))
 
     const url = page.url()
@@ -407,7 +409,7 @@ describe('Owner Portal — Dashboard (mocked)', () => {
   })
 
   it('settings profile page renders profile form', async () => {
-    await page.goto(`${ADMIN_WEB}/owner/settings/profile`, { waitUntil: 'networkidle2' })
+    await page.goto(`${ADMIN_WEB}/owner/settings/profile`, { waitUntil: 'networkidle' })
     await new Promise((r) => setTimeout(r, 800))
 
     const url = page.url()
