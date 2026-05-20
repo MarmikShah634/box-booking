@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+
+echo "Running pre-commit checks..."
+
+# Lint staged files (use root config only, skip node_modules)
+npx lint-staged --config package.json
+
+echo "Pre-commit checks passed."

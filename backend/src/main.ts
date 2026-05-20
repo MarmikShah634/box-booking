@@ -42,4 +42,4 @@ async function bootstrap() {
   logger.log(`API listening on port ${config.PORT} [${config.NODE_ENV}]`);
 }
 
-bootstrap();
+void bootstrap();

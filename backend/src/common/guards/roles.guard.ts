@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY, ActorRole } from '../decorators/roles.decorator';
+import { JwtPayload } from '../../auth/jwt.strategy';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -12,7 +13,8 @@ export class RolesGuard implements CanActivate {
       ctx.getClass(),
     ]);
     if (!required || required.length === 0) return true;
-    const { user } = ctx.switchToHttp().getRequest();
+    const req = ctx.switchToHttp().getRequest<{ user?: JwtPayload }>();
+    const user = req.user;
     if (!user || !required.includes(user.typ)) {
       throw new ForbiddenException({ error: 'FORBIDDEN', message: 'Insufficient role' });
     }

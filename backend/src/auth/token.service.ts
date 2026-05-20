@@ -7,20 +7,32 @@ import { randomBytes } from 'crypto';
 import { ActorRole } from '../common/decorators/roles.decorator';
 import { JwtPayload } from './jwt.strategy';
 import { randomUUID } from 'crypto';
-
-type TokenTable = 'userRefreshToken' | 'ownerRefreshToken' | 'superAdminRefreshToken';
-
-const TABLE_MAP: Record<ActorRole, TokenTable> = {
-  user: 'userRefreshToken',
-  owner: 'ownerRefreshToken',
-  super_admin: 'superAdminRefreshToken',
-};
+import type { Response as Res } from 'express';
 
 const SUBJECT_FIELD: Record<ActorRole, string> = {
   user: 'userId',
   owner: 'ownerId',
   super_admin: 'adminId',
 };
+
+interface RefreshTokenRecord {
+  id: string
+  tokenHash: string
+  revokedAt: Date | null
+  expiresAt: Date
+  [key: string]: unknown
+}
+
+interface RefreshTokenDelegate {
+  create(args: { data: Record<string, unknown> }): Promise<RefreshTokenRecord>
+  findMany(args: {
+    where: Record<string, unknown>
+    orderBy?: Record<string, unknown>
+    take?: number
+  }): Promise<RefreshTokenRecord[]>
+  update(args: { where: Record<string, unknown>; data: Record<string, unknown> }): Promise<RefreshTokenRecord>
+  updateMany(args: { where: Record<string, unknown>; data: Record<string, unknown> }): Promise<unknown>
+}
 
 @Injectable()
 export class TokenService implements OnModuleInit {
@@ -37,10 +49,17 @@ export class TokenService implements OnModuleInit {
 
   onModuleInit() {
     const privB64 = this.config.getOrThrow<string>('JWT_PRIVATE_KEY_BASE64');
-    // Key is stored as base64(PEM) — decode to get the PEM string
     this.privateKeyPem = Buffer.from(privB64, 'base64').toString('utf8');
     this.accessTtl = Number(this.config.get('JWT_ACCESS_TTL_SECONDS')) || 900;
     this.refreshTtl = Number(this.config.get('JWT_REFRESH_TTL_SECONDS')) || 2592000;
+  }
+
+  private getTable(typ: ActorRole): RefreshTokenDelegate {
+    switch (typ) {
+      case 'user': return this.prisma.userRefreshToken;
+      case 'owner': return this.prisma.ownerRefreshToken;
+      case 'super_admin': return this.prisma.superAdminRefreshToken;
+    }
   }
 
   issueAccessToken(sub: string, typ: ActorRole): string {
@@ -56,10 +75,9 @@ export class TokenService implements OnModuleInit {
     const raw = randomBytes(32).toString('hex');
     const tokenHash = await this.hash.hash(raw);
     const expiresAt = new Date(Date.now() + this.refreshTtl * 1000);
-
-    const table = TABLE_MAP[typ];
     const subField = SUBJECT_FIELD[typ];
-    await (this.prisma[table] as any).create({
+
+    await this.getTable(typ).create({
       data: { [subField]: sub, tokenHash, expiresAt },
     });
 
@@ -70,17 +88,16 @@ export class TokenService implements OnModuleInit {
     raw: string,
     typ: ActorRole,
   ): Promise<{ sub: string; newRaw: string }> {
-    const table = TABLE_MAP[typ];
     const subField = SUBJECT_FIELD[typ];
+    const table = this.getTable(typ);
 
-    // Find all non-revoked, non-expired tokens for this type and check each
-    const candidates = await (this.prisma[table] as any).findMany({
+    const candidates = await table.findMany({
       where: { revokedAt: null, expiresAt: { gt: new Date() } },
       orderBy: { createdAt: 'desc' },
       take: 20,
     });
 
-    let matched: any = null;
+    let matched: RefreshTokenRecord | null = null;
     for (const candidate of candidates) {
       if (await this.hash.verify(candidate.tokenHash, raw)) {
         matched = candidate;
@@ -89,26 +106,23 @@ export class TokenService implements OnModuleInit {
     }
 
     if (!matched) {
-      // Token not found — may be replayed revoked token; revoke all for safety
-      // (We can't easily identify the subject without the match, so just reject)
       throw new UnauthorizedException({ error: 'UNAUTHENTICATED', message: 'Invalid refresh token' });
     }
 
-    // Revoke matched token
-    await (this.prisma[table] as any).update({
+    await table.update({
       where: { id: matched.id },
       data: { revokedAt: new Date() },
     });
 
-    const sub: string = matched[subField];
+    const sub = matched[subField] as string;
     const newRaw = await this.issueRefreshToken(sub, typ);
     return { sub, newRaw };
   }
 
   async revokeRefreshToken(raw: string, typ: ActorRole): Promise<void> {
-    const table = TABLE_MAP[typ];
+    const table = this.getTable(typ);
 
-    const candidates = await (this.prisma[table] as any).findMany({
+    const candidates = await table.findMany({
       where: { revokedAt: null, expiresAt: { gt: new Date() } },
       orderBy: { createdAt: 'desc' },
       take: 20,
@@ -116,7 +130,7 @@ export class TokenService implements OnModuleInit {
 
     for (const candidate of candidates) {
       if (await this.hash.verify(candidate.tokenHash, raw)) {
-        await (this.prisma[table] as any).update({
+        await table.update({
           where: { id: candidate.id },
           data: { revokedAt: new Date() },
         });
@@ -126,15 +140,14 @@ export class TokenService implements OnModuleInit {
   }
 
   async revokeAllForSubject(sub: string, typ: ActorRole): Promise<void> {
-    const table = TABLE_MAP[typ];
     const subField = SUBJECT_FIELD[typ];
-    await (this.prisma[table] as any).updateMany({
+    await this.getTable(typ).updateMany({
       where: { [subField]: sub, revokedAt: null },
       data: { revokedAt: new Date() },
     });
   }
 
-  setRefreshCookie(res: any, token: string, typ: ActorRole): void {
+  setRefreshCookie(res: Res, token: string, typ: ActorRole): void {
     const isProd = this.config.get('NODE_ENV') === 'production';
     res.cookie(`refresh_${typ}`, token, {
       httpOnly: true,
@@ -145,7 +158,7 @@ export class TokenService implements OnModuleInit {
     });
   }
 
-  clearRefreshCookie(res: any, typ: ActorRole): void {
+  clearRefreshCookie(res: Res, typ: ActorRole): void {
     res.clearCookie(`refresh_${typ}`, {
       path: `/api/v1/auth/${typ.replace('_', '-')}`,
     });

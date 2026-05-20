@@ -1,11 +1,10 @@
-import { Test } from '@nestjs/testing';
-import { ConfigService } from '@nestjs/config';
 import { EncryptionService } from './encryption.service';
+import type { ConfigService } from '@nestjs/config';
 
-const TEST_KEY_HEX = 'a'.repeat(64); // 32-byte key for tests
+const TEST_KEY_HEX = 'a'.repeat(64);
 
 function makeService(): EncryptionService {
-  const config = { getOrThrow: (key: string) => (key === 'ENCRYPTION_KEY_HEX' ? TEST_KEY_HEX : '') } as any;
+  const config = { getOrThrow: (_key: string) => TEST_KEY_HEX } as unknown as ConfigService;
   const svc = new EncryptionService(config);
   svc.onModuleInit();
   return svc;
@@ -43,8 +42,7 @@ describe('EncryptionService', () => {
   it('throws on tampered ciphertext', () => {
     const enc = svc.encrypt('original');
     const parts = enc.split(':');
-    // flip one byte in the ciphertext section
-    const tampered = parts[0] + ':' + parts[1].slice(0, -2) + 'AA' + ':' + parts[2];
+    const tampered = parts[0] + ':' + (parts[1] ?? '').slice(0, -2) + 'AA' + ':' + parts[2];
     expect(() => svc.decrypt(tampered)).toThrow();
   });
 
@@ -56,7 +54,30 @@ describe('EncryptionService', () => {
     const badConfig = {
       getOrThrow: () => 'tooshort',
       get: (key: string) => (key === 'NODE_ENV' ? 'production' : undefined),
-    } as any;
+    } as unknown as ConfigService;
+    const svc2 = new EncryptionService(badConfig);
+    expect(() => svc2.onModuleInit()).toThrow('ENCRYPTION_KEY_HEX must be exactly 64 hex characters');
+  });
+
+  it('uses deterministic fallback key in development when key is wrong length', () => {
+    const devConfig = {
+      getOrThrow: () => 'tooshort',
+      get: (key: string) => (key === 'NODE_ENV' ? 'development' : undefined),
+    } as unknown as ConfigService;
+    const svc2 = new EncryptionService(devConfig);
+    // Should not throw in development
+    expect(() => svc2.onModuleInit()).not.toThrow();
+    // Should be usable (encrypt/decrypt still works with fallback key)
+    const plain = 'test-dev-fallback';
+    expect(svc2.decrypt(svc2.encrypt(plain))).toBe(plain);
+  });
+
+  it('throws on wrong format with a non-hex 64-char string in production', () => {
+    // Provide 64 chars but with invalid hex chars ('z' repeated)
+    const badConfig = {
+      getOrThrow: () => 'z'.repeat(64),
+      get: (key: string) => (key === 'NODE_ENV' ? 'production' : undefined),
+    } as unknown as ConfigService;
     const svc2 = new EncryptionService(badConfig);
     expect(() => svc2.onModuleInit()).toThrow('ENCRYPTION_KEY_HEX must be exactly 64 hex characters');
   });

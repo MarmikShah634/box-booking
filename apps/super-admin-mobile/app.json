@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "BoxCricket Admin",
+    "slug": "super-admin-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "boxcricketadmin",
+    "userInterfaceStyle": "dark",
+    "plugins": ["expo-router", "expo-secure-store"],
+    "android": { "adaptiveIcon": { "backgroundColor": "#dc2626" } },
+    "ios": { "bundleIdentifier": "com.boxcricket.superadmin" }
+  }
+}

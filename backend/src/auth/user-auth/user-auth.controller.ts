@@ -47,7 +47,8 @@ export class UserAuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const raw = req.cookies?.['refresh_user'];
+    const cookies = req.cookies as Record<string, string | undefined>;
+    const raw = cookies['refresh_user'];
     if (!raw) throw new Error('No refresh token');
     const { accessToken, newRefreshToken } = await this.svc.refresh(raw);
     this.tokens.setRefreshCookie(res, newRefreshToken, 'user');
@@ -58,7 +59,8 @@ export class UserAuthController {
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<void> {
-    const raw = req.cookies?.['refresh_user'];
+    const cookies = req.cookies as Record<string, string | undefined>;
+    const raw = cookies['refresh_user'];
     if (raw) await this.svc.logout(raw);
     this.tokens.clearRefreshCookie(res, 'user');
   }

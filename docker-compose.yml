@@ -1,0 +1,54 @@
+# Root-level docker-compose for local development convenience.
+# Run from the repo root: docker compose up -d
+#
+# This starts the two infrastructure services the backend depends on:
+#   - PostgreSQL 16 on localhost:5433
+#   - Redis 7     on localhost:6379
+#
+# Credentials match the defaults in backend/.env.example so no changes
+# are needed for local development.
+#
+# Useful commands:
+#   docker compose up -d        # start in background
+#   docker compose logs -f      # stream logs
+#   docker compose down         # stop (keeps data volumes)
+#   docker compose down -v      # stop and delete all data
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: boxcricket-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: boxcricket
+      POSTGRES_PASSWORD: boxcricket_dev
+      POSTGRES_DB: boxcricket
+    ports:
+      - '5433:5432'   # 5433 on host to avoid clashing with any existing local Postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U boxcricket']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: boxcricket-redis
+    restart: unless-stopped
+    # Password matches REDIS_URL in backend/.env.example
+    command: redis-server --requirepass redis_dev_pass --save 20 1 --loglevel warning
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', 'redis_dev_pass', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:

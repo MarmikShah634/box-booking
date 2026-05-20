@@ -1,9 +1,10 @@
 import { HashService } from './hash.service';
+import type { ConfigService } from '@nestjs/config';
 
 function makeService(): HashService {
   const config = {
-    get: (key: string, def: number) => def,
-  } as any;
+    get: (_key: string, def: unknown) => def,
+  } as unknown as ConfigService;
   const svc = new HashService(config);
   svc.onModuleInit();
   return svc;
@@ -42,5 +43,4 @@ describe('HashService', () => {
   });
 });
 
-// argon2id is slow — increase default timeout for this file
 jest.setTimeout(30_000);
