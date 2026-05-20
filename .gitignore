@@ -47,3 +47,6 @@ backend/generated/
 
 # Misc
 .claude/
+
+# E2E test screenshots
+tests/screenshots/
